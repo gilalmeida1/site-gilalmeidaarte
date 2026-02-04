@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galeria de Artes | Gii Almeida</title>
+    
+    <!-- FIREBASE -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Arial', sans-serif; }
+        body { background: #f5f5f5; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        h1 { color: #333; text-align: center; margin-bottom: 30px; }
+        .upload-section, .gallery-section { background: #f8f9fa; padding: 20px; margin-bottom: 20px; border-radius: 10px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #666; }
+        select, input[type="file"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        button { background: #4285f4; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 10px 0; }
+        .gallery-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
+        .gallery-item img { width: 100%; height: 150px; object-fit: cover; border-radius: 5px; }
+        .message { padding: 10px; margin: 10px 0; border-radius: 5px; display: none; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Galeria de Artes - Gii Almeida</h1>
+        
+        <div class="upload-section" id="uploadSection">
+            <h2>📤 Upload de Nova Obra</h2>
+            <div class="form-group">
+                <label for="categoria">Categoria:</label>
+                <select id="categoria">
+                    <option value="retratos">Retratos</option>
+                    <option value="paisagens">Paisagens</option>
+                    <option value="abstratos">Abstratos</option>
+                    <option value="encomendas">Encomendas</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="fileInput">Selecione a imagem:</label>
+                <input type="file" id="fileInput" accept="image/*">
+            </div>
+            
+            <button onclick="uploadObra()">Enviar Obra</button>
+            <div class="message" id="message"></div>
+        </div>
+        
+        <div class="gallery-section">
+            <h2>🖼️ Galeria de Obras</h2>
+            <div style="margin-bottom: 20px;">
+                <button onclick="carregarGaleria('retratos')">Retratos</button>
+                <button onclick="carregarGaleria('paisagens')">Paisagens</button>
+                <button onclick="carregarGaleria('abstratos')">Abstratos</button>
+                <button onclick="carregarGaleria('encomendas')">Encomendas</button>
+                <button onclick="carregarGaleria('todos')">Todas</button>
+            </div>
+            
+            <div class="gallery-container" id="galleryContainer">
+                <p style="text-align: center; color: #888;">Carregando galeria...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // COLE AS CONFIGURAÇÕES QUE VOCÊ PEGOU AQUI ↓↓↓
+        const firebaseConfig = {
+            apiKey: "AIzaSyDOwM9Ri3XGNx_1U15mgTrY8MDTIwM7uDs",
+            authDomain: "gil-almeida-arte.firebaseapp.com",
+            projectId: "gil-almeida-arte",
+            storageBucket: "gil-almeida-arte.firebasestorage.app",
+            messagingSenderId: "480347093859",
+            appId: "1:480347093859:web:2c7f64a36dfa85547d7156",
+            measurementId: "G-5MJ53NTXL9"
+        };
+        
+        // Inicializar Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const storage = firebase.storage();
+        const auth = firebase.auth();
+        
+        // SEU EMAIL E SENHA DO FIREBASE (ALTERE AQUI!)
+        const SEU_EMAIL = "gildesenhista@hotmail.com";  // COLOQUE SEU EMAIL AQUI
+        const SUA_SENHA = "gil198277";           // COLOQUE SUA SENHA AQUI
+        
+        // Função para fazer login
+        async function fazerLogin() {
+            try {
+                await auth.signInWithEmailAndPassword(SEU_EMAIL, SUA_SENHA);
+                mostrarMensagem("✅ Login realizado!", "success");
+                document.getElementById('uploadSection').style.display = 'block';
+            } catch (error) {
+                mostrarMensagem("⚠️ Faça login para fazer upload", "error");
+                document.getElementById('uploadSection').style.display = 'none';
+            }
+        }
+        
+        // Função de upload
+        async function uploadObra() {
+            const fileInput = document.getElementById('fileInput');
+            const categoria = document.getElementById('categoria').value;
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                mostrarMensagem("❌ Selecione um arquivo!", "error");
+                return;
+            }
+            
+            try {
+                // Criar nome único
+                const nomeArquivo = `${Date.now()}_${file.name}`;
+                
+                // Referência no Storage
+                const storageRef = storage.ref();
+                const obraRef = storageRef.child(`galeria/${categoria}/${nomeArquivo}`);
+                
+                // Fazer upload
+                await obraRef.put(file);
+                
+                // Pegar URL
+                const downloadURL = await obraRef.getDownloadURL();
+                
+                mostrarMensagem(
+                    `✅ Upload completo!<br>
+                    <a href="${downloadURL}" target="_blank">Ver imagem</a>`, 
+                    "success"
+                );
+                
+                // Recarregar galeria
+                carregarGaleria(categoria);
+                
+            } catch (error) {
+                mostrarMensagem("❌ Erro: " + error.message, "error");
+            }
+        }
+        
+        // Função para carregar galeria
+        async function carregarGaleria(categoria) {
+            const container = document.getElementById('galleryContainer');
+            container.innerHTML = '<p>Carregando...</p>';
+            
+            try {
+                const storageRef = storage.ref();
+                let lista;
+                
+                if (categoria === 'todos') {
+                    const galeriaRef = storageRef.child('galeria');
+                    lista = await galeriaRef.listAll();
+                } else {
+                    const categoriaRef = storageRef.child(`galeria/${categoria}`);
+                    lista = await categoriaRef.listAll();
+                }
+                
+                container.innerHTML = '';
+                
+                for (const item of lista.items) {
+                    try {
+                        const url = await item.getDownloadURL();
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'gallery-item';
+                        itemDiv.innerHTML = `<img src="${url}" alt="Obra">`;
+                        container.appendChild(itemDiv);
+                    } catch (error) {
+                        console.log("Erro ao carregar:", error);
+                    }
+                }
+                
+                if (container.children.length === 0) {
+                    container.innerHTML = '<p>Nenhuma obra nesta categoria.</p>';
+                }
+                
+            } catch (error) {
+                container.innerHTML = '<p>Erro ao carregar galeria.</p>';
+            }
+        }
+        
+        // Função para mostrar mensagens
+        function mostrarMensagem(texto, tipo) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerHTML = texto;
+            messageDiv.className = `message ${tipo}`;
+            messageDiv.style.display = 'block';
+            setTimeout(() => { messageDiv.style.display = 'none'; }, 5000);
+        }
+        
+        // Inicializar
+        window.onload = function() {
+            fazerLogin();
+            carregarGaleria('todos');
+        };
+    </script>
+</body>
+</html>
